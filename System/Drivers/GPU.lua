@@ -19,6 +19,8 @@ end
 
 function Driver:Unload()
     _G.Darwin.Logger:Msg("Darwin::GPU: Say goodnight, Gracie.")
+    gpu.refreshSize()
+    gpu.setSize(16)
     gpu.fill()
     gpu.sync()
     _G.Darwin.Logger:Msg("Darwin::GPU: Shut down driver.")
