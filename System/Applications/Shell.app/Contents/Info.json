@@ -2,7 +2,7 @@
 	"PList": {
 		"Name": "Shell",
 		"Author": "tocat",
-		"PackageName": "com.andromeda.shell",
+		"PackageName": "com.andromeda.ash",
 		"Version": "1.0.0",
 		"Entry": "AndromedaOS/shell.lua"
 	}

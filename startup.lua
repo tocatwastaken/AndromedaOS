@@ -55,4 +55,4 @@ end, function(error)
     end
     os.reboot()
 end)
-shell.run("/System/Applications/Shell.app/Contents/AndromedaOS/hello.lua")
+shell.run("/System/Libraries/Darwin/runapp.lua", "/System/Applications/Shell.app")
