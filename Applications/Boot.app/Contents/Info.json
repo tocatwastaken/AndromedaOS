@@ -1,0 +1,9 @@
+{
+	"PList": {
+		"Name": "Boot screen",
+		"Author": "tocat",
+		"PackageName": "com.andromeda.hello",
+		"Version": "1.0.0",
+		"Entry": "AndromedaOS/hello.lua"
+	}
+}
