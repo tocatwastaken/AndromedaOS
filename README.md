@@ -11,6 +11,6 @@ If you don't see your computer, make a folder first and it should pop up!
 1. [x] Create the core kernel
 2. [x] Add a driver loader
 3. [ ] Add a Desktop Environment
-4. [ ] Add input drivers
+4. [x] Add input drivers
 5. [ ] Write a setup program
 6. [ ] Write a better readme
