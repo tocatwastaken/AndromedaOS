@@ -1,12 +1,12 @@
 local DriverLoader = {
     Drivers = {}
 }
-local Logger = require '/System/Libraries/Darwin/logger'
+local Logger = require '/System/Libraries/Perseus/logger'
 DriverLoader.__index = DriverLoader
 DriverLoader.Drivers = {}
 function DriverLoader:Load()
     for index, value in ipairs(fs.list("/System/Drivers")) do
-        _G.Darwin.Logger:Msg("Darwin::DriverLoader: Loading driver: " .. value)
+        _G.Perseus.Logger:Msg("Perseus::DriverLoader: Loading driver: " .. value)
         local driver = {
             Driver = require("/System/Drivers/" .. string.gsub(value, ".lua", "")),
             Name = string.gsub(value, ".lua", "")
@@ -21,14 +21,14 @@ function DriverLoader:GetLoadedDriverByName(name)
             return v.Driver
         end
     end
-    error("Darwin::DriverLoader: Failed to find driver: " .. name)
+    error("Perseus::DriverLoader: Failed to find driver: " .. name)
 end
 function DriverLoader:Unload()
-    _G.Darwin.Logger:Msg("Darwin::DriverLoader: Say goodnight, Gracie.")
+    _G.Perseus.Logger:Msg("Perseus::DriverLoader: Say goodnight, Gracie.")
     for index, value in ipairs(DriverLoader.Drivers) do
         value.Driver:Unload()
         table.remove(DriverLoader.Drivers, index)
     end
-    _G.Darwin.Logger:Msg("Darwin::DriverLoader: Unloaded all Drivers.")
+    _G.Perseus.Logger:Msg("Perseus::DriverLoader: Unloaded all Drivers.")
 end
 return DriverLoader

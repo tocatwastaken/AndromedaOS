@@ -19,7 +19,7 @@ function Logger:Msg(str, stealth)
     local time_table = os.date("*t", time)
     logfile.write("[" .. time_table.hour .. ":" .. time_table.min .. ":" .. time_table.sec .. "]: " .. str .. "\n")
     if (Verbose) and not stealth then
-        print("[" .. time_table.hour .. ":" .. time_table.min .. ":" .. time_table.sec .. "]: " .. str)
+        cepheus.term.print("[" .. time_table.hour .. ":" .. time_table.min .. ":" .. time_table.sec .. "]: " .. str)
     end
 end
 function Logger:Deinit()

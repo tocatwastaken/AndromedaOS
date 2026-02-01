@@ -1,5 +1,5 @@
-local Config = require '/System/Libraries/Darwin/config'
-local sha256 = require '/System/Libraries/Darwin/sha256'
+local Config = require '/System/Libraries/Perseus/config'
+local sha256 = require '/System/Libraries/Perseus/sha256'
 term.clear()
 term.setCursorPos(1, 1)
 local running = true
