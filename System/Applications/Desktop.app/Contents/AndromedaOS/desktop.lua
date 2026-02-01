@@ -2,7 +2,7 @@
 --I didn't when I decided to switch...
 --At least it's not AI slop!
 
-local gpu = _G.Darwin.DriverLoader:GetLoadedDriverByName("GPU"):GetGPU()
+local gpu = _G.Perseus.DriverLoader:GetLoadedDriverByName("GPU"):GetGPU()
 print("VRAM constraint: " .. gpu.getMaxMemory())
 gpu.refreshSize()
 gpu.setSize(16)

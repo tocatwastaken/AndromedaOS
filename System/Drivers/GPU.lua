@@ -1,16 +1,16 @@
-local gpu = peripheral.find("tm_gpu")
+local gpu = cepheus.peripherals.find("tm_gpu")
 
 
 local Driver = {}
 Driver.__index = Driver
 
 function Driver:Load()
-    _G.Darwin.Logger:Msg("Darwin::GPU: Initializing...")
+    _G.Perseus.Logger:Msg("Perseus::GPU: Initializing...")
     gpu.refreshSize()
     gpu.setSize(16)
     gpu.fill()
     gpu.sync()
-    _G.Darwin.Logger:Msg("Darwin::GPU: Ready!")
+    _G.Perseus.Logger:Msg("Perseus::GPU: Ready!")
 end
 
 function Driver:GetGPU()
@@ -18,12 +18,12 @@ function Driver:GetGPU()
 end
 
 function Driver:Unload()
-    _G.Darwin.Logger:Msg("Darwin::GPU: Say goodnight, Gracie.")
+    _G.Perseus.Logger:Msg("Perseus::GPU: Say goodnight, Gracie.")
     gpu.refreshSize()
     gpu.setSize(16)
     gpu.fill()
     gpu.sync()
-    _G.Darwin.Logger:Msg("Darwin::GPU: Shut down driver.")
+    _G.Perseus.Logger:Msg("Perseus::GPU: Shut down driver.")
 end
 
 return Driver

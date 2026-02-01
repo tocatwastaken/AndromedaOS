@@ -1,5 +1,2 @@
-.vscode/
-README.md
-System/Logs/
-#My personal directory for testing things...
-home/
+System/Logs/*
+.vscode
