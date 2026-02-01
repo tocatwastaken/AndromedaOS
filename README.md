@@ -1,6 +1,6 @@
 # AndromedaOS BETA BRANCH  
 Note: This branch is used for bleeding edge builds, and may be buggy!
-Version 2026.1  
+Version 2026.2  
 This is the source code to my WIP ComputerCraft OS!
 # Getting Started
 Note: This requires [Tom's Peripherals](https://www.curseforge.com/minecraft/mc-mods/toms-peripherals)!  
