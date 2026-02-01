@@ -2,7 +2,7 @@
 Version 2026.1  
 This is the source code to my WIP ComputerCraft OS!
 # Getting Started
-Simply clone the repo to your computer to get started. Note that this OS also expects the DirectGPU mod. (Sorry Fabric users...)  
+Simply clone the repo to your computer to get started. Note that this OS also expects the [DirectGPU](https://github.com/tiktop101/CC-DirectGPU-Mod) mod. (Sorry Fabric users...)  
 You can find your computer's drive in the folder (minecraft install)/saves/(world name)/computercraft/computer/(your computer id, can be found with the id command)  
 If you don't see your computer, make a folder first and it should pop up!  
 # TODOS (Which you can help with by submitting a PR!)
