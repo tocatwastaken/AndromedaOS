@@ -1,0 +1,9 @@
+{
+	"PList": {
+		"Name": "Desktop",
+		"Author": "tocat",
+		"PackageName": "com.andromeda.de",
+		"Version": "1.0.0",
+		"Entry": "AndromedaOS/desktop.lua"
+	}
+}

@@ -1,0 +1,9 @@
+{
+	"PList": {
+		"Name": "TTY Login",
+		"Author": "tocat",
+		"PackageName": "com.andromeda.login",
+		"Version": "1.0.0",
+		"Entry": "AndromedaOS/login.lua"
+	}
+}
