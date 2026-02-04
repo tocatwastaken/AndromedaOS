@@ -2085,8 +2085,8 @@ local function checkPermission(path, requiredPerm)
 	local euid, egid
 	local currentPid = cepheus.sched and cepheus.sched.current_pid and cepheus.sched.current_pid() or 0
 
-	if currentPid > 0 and cepheus.sched._tasks and cepheus.sched._tasks[currentPid] then
-		local task = cepheus.sched._tasks[currentPid]
+	if currentPid > 0 and _tasks and _tasks[currentPid] then
+		local task = _tasks[currentPid]
 		euid = task.euid or task.owner or 0
 		egid = task.egid or task.gid or 0
 	else
@@ -2252,8 +2252,8 @@ local function checkPathTraversal(path)
 	local euid = 0
 	local currentPid = cepheus.sched and cepheus.sched.current_pid and cepheus.sched.current_pid() or 0
 
-	if currentPid > 0 and cepheus.sched._tasks and cepheus.sched._tasks[currentPid] then
-		local task = cepheus.sched._tasks[currentPid]
+	if currentPid > 0 and _tasks and _tasks[currentPid] then
+		local task = _tasks[currentPid]
 		euid = task.euid or task.owner or 0
 	else
 		local currentUser = cepheus.users.getCurrentUser()
@@ -2624,25 +2624,25 @@ cepheus.sched.MODE = {
 	FAIR = "fair",
 }
 
-cepheus.sched._tasks = {}
-cepheus.sched._nextPid = 1
-cepheus.sched._currentPid = 0
-cepheus.sched._schedulerMode = cepheus.sched.MODE.ROUND_ROBIN
-cepheus.sched._worldFrozen = false
-cepheus.sched._criticalSection = 0
-cepheus.sched._events = {}
-cepheus.sched._deferredQueue = {}
+local _tasks = {}
+local _nextPid = 1
+local _currentPid = 0
+local _schedulerMode = cepheus.sched.MODE.ROUND_ROBIN
+local _worldFrozen = false
+local _criticalSection = 0
+local _events = {}
+local _deferredQueue = {}
 
-cepheus.sched._resources = {}
-cepheus.sched._mutexes = {}
-cepheus.sched._semaphores = {}
-cepheus.sched._conditions = {}
-cepheus.sched._nextResourceId = 1
+local _resources = {}
+local _mutexes = {}
+local _semaphores = {}
+local _conditions = {}
+local _nextResourceId = 1
 
 --- Get current task's PID
 -- @return number Current PID
 function cepheus.sched.current_pid()
-	return cepheus.sched._currentPid
+	return _currentPid
 end
 
 --- Spawn a new task
@@ -2652,28 +2652,28 @@ end
 function cepheus.sched.spawn(func, ...)
 	expect(1, func, "function")
 
-	local pid = cepheus.sched._nextPid
-	cepheus.sched._nextPid = cepheus.sched._nextPid + 1
+	local pid = _nextPid
+	_nextPid = _nextPid + 1
 
 	local args = { ... }
 
-	local parentTask = cepheus.sched._tasks[cepheus.sched._currentPid]
+	local parentTask = _tasks[_currentPid]
 	local stdin = parentTask and parentTask.stdin or nil
 	local stdout = parentTask and parentTask.stdout or nil
 	local stderr = parentTask and parentTask.stderr or nil
 
-	cepheus.sched._tasks[pid] = {
+	_tasks[pid] = {
 		pid = pid,
 		state = cepheus.sched.STATE.READY,
 		priority = 0,
 		coroutine = coroutine.create(func),
 		args = args,
-		parent = cepheus.sched._currentPid,
+		parent = _currentPid,
 		children = {},
-		owner = cepheus.users.getCurrentUser() and cepheus.users.getCurrentUser().uid or 0,
-		gid = cepheus.users.getCurrentUser() and cepheus.users.getCurrentUser().gid or 0,
-		euid = cepheus.users.getCurrentUser() and cepheus.users.getCurrentUser().uid or 0,
-		egid = cepheus.users.getCurrentUser() and cepheus.users.getCurrentUser().gid or 0,
+		owner = parentTask and parentTask.euid or 0,
+		gid = parentTask and parentTask.egid or 0,
+		euid = parentTask and parentTask.euid or 0,
+		egid = parentTask and parentTask.egid or 0,
 		mailbox = {},
 		mailboxLimit = 100,
 		signals = {},
@@ -2691,8 +2691,8 @@ function cepheus.sched.spawn(func, ...)
 		stderr = stderr,
 	}
 
-	if cepheus.sched._currentPid ~= 0 and cepheus.sched._tasks[cepheus.sched._currentPid] then
-		table.insert(cepheus.sched._tasks[cepheus.sched._currentPid].children, pid)
+	if _currentPid ~= 0 and _tasks[_currentPid] then
+		table.insert(_tasks[_currentPid].children, pid)
 	end
 
 	return pid
@@ -2717,7 +2717,7 @@ function cepheus.sched.spawnF(path, ...)
 	end
 
 	local pid = cepheus.sched.spawn(func, ...)
-	local task = cepheus.sched._tasks[pid]
+	local task = _tasks[pid]
 
 	local stat = cepheus.perms.stat(path)
 	if stat then
@@ -2729,7 +2729,7 @@ function cepheus.sched.spawnF(path, ...)
 
 			newEnv.setuid = function(newUid)
 				expect(1, newUid, "number")
-				local currentTask = cepheus.sched._tasks[cepheus.sched.current_pid()]
+				local currentTask = _tasks[cepheus.sched.current_pid()]
 				if currentTask then
 					if currentTask.euid == 0 or newUid == currentTask.owner then
 						currentTask.euid = newUid
@@ -2742,12 +2742,12 @@ function cepheus.sched.spawnF(path, ...)
 			end
 
 			newEnv.getuid = function()
-				local currentTask = cepheus.sched._tasks[cepheus.sched.current_pid()]
+				local currentTask = _tasks[cepheus.sched.current_pid()]
 				return currentTask and currentTask.owner or 0
 			end
 
 			newEnv.geteuid = function()
-				local currentTask = cepheus.sched._tasks[cepheus.sched.current_pid()]
+				local currentTask = _tasks[cepheus.sched.current_pid()]
 				return currentTask and currentTask.euid or 0
 			end
 
@@ -2762,7 +2762,7 @@ function cepheus.sched.spawnF(path, ...)
 
 			newEnv.setgid = function(newGid)
 				expect(1, newGid, "number")
-				local currentTask = cepheus.sched._tasks[cepheus.sched.current_pid()]
+				local currentTask = _tasks[cepheus.sched.current_pid()]
 				if currentTask then
 					if currentTask.euid == 0 or newGid == currentTask.gid then
 						currentTask.egid = newGid
@@ -2775,12 +2775,12 @@ function cepheus.sched.spawnF(path, ...)
 			end
 
 			newEnv.getgid = function()
-				local currentTask = cepheus.sched._tasks[cepheus.sched.current_pid()]
+				local currentTask = _tasks[cepheus.sched.current_pid()]
 				return currentTask and currentTask.gid or 0
 			end
 
 			newEnv.getegid = function()
-				local currentTask = cepheus.sched._tasks[cepheus.sched.current_pid()]
+				local currentTask = _tasks[cepheus.sched.current_pid()]
 				return currentTask and currentTask.egid or 0
 			end
 
@@ -2805,8 +2805,8 @@ function cepheus.sched.spawnAsUser(path, uid, gid, ...)
 	local currentPid = cepheus.sched.current_pid()
 	local hasRootPriv = false
 
-	if currentPid > 0 and cepheus.sched._tasks[currentPid] then
-		local task = cepheus.sched._tasks[currentPid]
+	if currentPid > 0 and _tasks[currentPid] then
+		local task = _tasks[currentPid]
 		hasRootPriv = (task.euid == 0) or (task.owner == 0)
 	else
 		hasRootPriv = cepheus.users.isRoot()
@@ -2830,7 +2830,7 @@ function cepheus.sched.spawnAsUser(path, uid, gid, ...)
 
 	local args = { ... }
 	local pid = cepheus.sched.spawn(func, table.unpack(args))
-	local task = cepheus.sched._tasks[pid]
+	local task = _tasks[pid]
 
 	task.owner = uid
 	task.euid = uid
@@ -2851,17 +2851,17 @@ function cepheus.sched.exit(code)
 		return
 	end
 
-	local task = cepheus.sched._tasks[pid]
+	local task = _tasks[pid]
 	if task then
 		task.state = cepheus.sched.STATE.DEAD
 		task.exitCode = code or 0
 
 		for _, resourceId in ipairs(task.resources) do
-			local resource = cepheus.sched._resources[resourceId]
+			local resource = _resources[resourceId]
 			if resource and resource.cleanup then
 				pcall(resource.cleanup, resource.object)
 			end
-			cepheus.sched._resources[resourceId] = nil
+			_resources[resourceId] = nil
 		end
 	end
 
@@ -2882,13 +2882,18 @@ function cepheus.sched.kill(pid, signal)
 
 	signal = signal or cepheus.sched.SIGNAL.KILL
 
-	local task = cepheus.sched._tasks[pid]
+	local task = _tasks[pid]
 	if not task then
 		error("No such task: " .. pid)
 		return
 	end
 
-	if not cepheus.users.isRoot() and task.owner ~= cepheus.users.getCurrentUser().uid then
+	local callerTask = _tasks[cepheus.sched.current_pid()]
+	if
+		not cepheus.users.isRoot()
+		and task.owner ~= (callerTask and callerTask.euid or 0)
+		and task.parent ~= cepheus.sched.current_pid()
+	then
 		error("Permission denied: not task owner")
 		return
 	end
@@ -2907,13 +2912,18 @@ end
 function cepheus.sched.wait(pid)
 	expect(1, pid, "number")
 
-	local task = cepheus.sched._tasks[pid]
+	local task = _tasks[pid]
 	if not task then
 		error("No such task: " .. tostring(pid))
 		return
 	end
 
-	if not cepheus.users.isRoot() and task.owner ~= cepheus.users.getCurrentUser().uid then
+	local callerTask = _tasks[cepheus.sched.current_pid()]
+	if
+		not cepheus.users.isRoot()
+		and task.owner ~= (callerTask and callerTask.euid or 0)
+		and task.parent ~= cepheus.sched.current_pid()
+	then
 		error("Permission denied: not task owner")
 		return
 	end
@@ -2923,7 +2933,7 @@ function cepheus.sched.wait(pid)
 	end
 
 	local exitCode = task.exitCode
-	cepheus.sched._tasks[pid] = nil
+	_tasks[pid] = nil
 	return exitCode
 end
 
@@ -2932,13 +2942,18 @@ end
 function cepheus.sched.detach(pid)
 	expect(1, pid, "number")
 
-	local task = cepheus.sched._tasks[pid]
+	local task = _tasks[pid]
 	if not task then
 		error("No such task: " .. pid)
 		return
 	end
 
-	if not cepheus.users.isRoot() and task.owner ~= cepheus.users.getCurrentUser().uid then
+	local callerTask = _tasks[cepheus.sched.current_pid()]
+	if
+		not cepheus.users.isRoot()
+		and task.owner ~= (callerTask and callerTask.euid or 0)
+		and task.parent ~= cepheus.sched.current_pid()
+	then
 		error("Permission denied: not task owner")
 		return
 	end
@@ -2958,7 +2973,7 @@ function cepheus.sched.exec(func, ...)
 		return
 	end
 
-	local task = cepheus.sched._tasks[pid]
+	local task = _tasks[pid]
 	if task then
 		task.coroutine = coroutine.create(func)
 		task.args = { ... }
@@ -2986,7 +3001,7 @@ function cepheus.sched.execF(path, ...)
 	end
 
 	local pid = cepheus.sched.current_pid()
-	local task = cepheus.sched._tasks[pid]
+	local task = _tasks[pid]
 
 	local stat = cepheus.perms.stat(path)
 	if stat and task then
@@ -3012,7 +3027,7 @@ function cepheus.sched.sleep(ms)
 	expect(1, ms, "number")
 
 	local pid = cepheus.sched.current_pid()
-	local task = cepheus.sched._tasks[pid]
+	local task = _tasks[pid]
 
 	if task then
 		task.wakeTime = os.epoch("utc") + ms
@@ -3035,13 +3050,18 @@ function cepheus.sched.set_priority(pid, prio)
 		return
 	end
 
-	local task = cepheus.sched._tasks[pid]
+	local task = _tasks[pid]
 	if not task then
 		error("No such task: " .. pid)
 		return
 	end
 
-	if not cepheus.users.isRoot() and task.owner ~= cepheus.users.getCurrentUser().uid then
+	local callerTask = _tasks[cepheus.sched.current_pid()]
+	if
+		not cepheus.users.isRoot()
+		and task.owner ~= (callerTask and callerTask.euid or 0)
+		and task.parent ~= cepheus.sched.current_pid()
+	then
 		error("Permission denied: not task owner")
 		return
 	end
@@ -3055,7 +3075,7 @@ end
 function cepheus.sched.get_priority(pid)
 	expect(1, pid, "number")
 
-	local task = cepheus.sched._tasks[pid]
+	local task = _tasks[pid]
 	if not task then
 		error("No such task: " .. pid)
 		return
@@ -3071,13 +3091,18 @@ function cepheus.sched.set_stdin(pid, stream)
 	pid = pid or cepheus.sched.current_pid()
 	expect(1, pid, "number")
 
-	local task = cepheus.sched._tasks[pid]
+	local task = _tasks[pid]
 	if not task then
 		error("No such task: " .. pid)
 		return
 	end
 
-	if not cepheus.users.isRoot() and task.owner ~= cepheus.users.getCurrentUser().uid then
+	local callerTask = _tasks[cepheus.sched.current_pid()]
+	if
+		not cepheus.users.isRoot()
+		and task.owner ~= (callerTask and callerTask.euid or 0)
+		and task.parent ~= cepheus.sched.current_pid()
+	then
 		error("Permission denied: not task owner")
 		return
 	end
@@ -3092,13 +3117,18 @@ function cepheus.sched.set_stdout(pid, stream)
 	pid = pid or cepheus.sched.current_pid()
 	expect(1, pid, "number")
 
-	local task = cepheus.sched._tasks[pid]
+	local task = _tasks[pid]
 	if not task then
 		error("No such task: " .. pid)
 		return
 	end
 
-	if not cepheus.users.isRoot() and task.owner ~= cepheus.users.getCurrentUser().uid then
+	local callerTask = _tasks[cepheus.sched.current_pid()]
+	if
+		not cepheus.users.isRoot()
+		and task.owner ~= (callerTask and callerTask.euid or 0)
+		and task.parent ~= cepheus.sched.current_pid()
+	then
 		error("Permission denied: not task owner")
 		return
 	end
@@ -3113,13 +3143,18 @@ function cepheus.sched.set_stderr(pid, stream)
 	pid = pid or cepheus.sched.current_pid()
 	expect(1, pid, "number")
 
-	local task = cepheus.sched._tasks[pid]
+	local task = _tasks[pid]
 	if not task then
 		error("No such task: " .. pid)
 		return
 	end
 
-	if not cepheus.users.isRoot() and task.owner ~= cepheus.users.getCurrentUser().uid then
+	local callerTask = _tasks[cepheus.sched.current_pid()]
+	if
+		not cepheus.users.isRoot()
+		and task.owner ~= (callerTask and callerTask.euid or 0)
+		and task.parent ~= cepheus.sched.current_pid()
+	then
 		error("Permission denied: not task owner")
 		return
 	end
@@ -3134,7 +3169,7 @@ function cepheus.sched.get_stdin(pid)
 	pid = pid or cepheus.sched.current_pid()
 	expect(1, pid, "number")
 
-	local task = cepheus.sched._tasks[pid]
+	local task = _tasks[pid]
 	if not task then
 		return nil
 	end
@@ -3149,7 +3184,7 @@ function cepheus.sched.get_stdout(pid)
 	pid = pid or cepheus.sched.current_pid()
 	expect(1, pid, "number")
 
-	local task = cepheus.sched._tasks[pid]
+	local task = _tasks[pid]
 	if not task then
 		return nil
 	end
@@ -3164,7 +3199,7 @@ function cepheus.sched.get_stderr(pid)
 	pid = pid or cepheus.sched.current_pid()
 	expect(1, pid, "number")
 
-	local task = cepheus.sched._tasks[pid]
+	local task = _tasks[pid]
 	if not task then
 		return nil
 	end
@@ -3182,13 +3217,18 @@ function cepheus.sched.pause(pid)
 		return
 	end
 
-	local task = cepheus.sched._tasks[pid]
+	local task = _tasks[pid]
 	if not task then
 		error("No such task: " .. pid)
 		return
 	end
 
-	if not cepheus.users.isRoot() and task.owner ~= cepheus.users.getCurrentUser().uid then
+	local callerTask = _tasks[cepheus.sched.current_pid()]
+	if
+		not cepheus.users.isRoot()
+		and task.owner ~= (callerTask and callerTask.euid or 0)
+		and task.parent ~= cepheus.sched.current_pid()
+	then
 		error("Permission denied: not task owner")
 		return
 	end
@@ -3206,13 +3246,18 @@ function cepheus.sched.resume(pid)
 		return
 	end
 
-	local task = cepheus.sched._tasks[pid]
+	local task = _tasks[pid]
 	if not task then
 		error("No such task: " .. pid)
 		return
 	end
 
-	if not cepheus.users.isRoot() and task.owner ~= cepheus.users.getCurrentUser().uid then
+	local callerTask = _tasks[cepheus.sched.current_pid()]
+	if
+		not cepheus.users.isRoot()
+		and task.owner ~= (callerTask and callerTask.euid or 0)
+		and task.parent ~= cepheus.sched.current_pid()
+	then
 		error("Permission denied: not task owner")
 		return
 	end
@@ -3228,7 +3273,7 @@ function cepheus.sched.block(reason)
 	expect(1, reason, "string", "nil")
 
 	local pid = cepheus.sched.current_pid()
-	local task = cepheus.sched._tasks[pid]
+	local task = _tasks[pid]
 
 	if task then
 		task.state = cepheus.sched.STATE.BLOCKED
@@ -3244,7 +3289,7 @@ end
 function cepheus.sched.wake(pid)
 	expect(1, pid, "number")
 
-	local task = cepheus.sched._tasks[pid]
+	local task = _tasks[pid]
 	if not task then
 		error("No such task: " .. pid)
 		return
@@ -3262,7 +3307,7 @@ end
 function cepheus.sched.wake_all(reason)
 	expect(1, reason, "string")
 
-	for pid, task in pairs(cepheus.sched._tasks) do
+	for pid, task in pairs(_tasks) do
 		if task.state == cepheus.sched.STATE.BLOCKED and task.blockReason == reason then
 			task.state = cepheus.sched.STATE.READY
 			task.blockReason = nil
@@ -3277,11 +3322,11 @@ function cepheus.sched.wait_event(event)
 
 	local pid = cepheus.sched.current_pid()
 
-	if not cepheus.sched._events[event] then
-		cepheus.sched._events[event] = {}
+	if not _events[event] then
+		_events[event] = {}
 	end
 
-	table.insert(cepheus.sched._events[event], pid)
+	table.insert(_events[event], pid)
 	cepheus.sched.block("event:" .. event)
 end
 
@@ -3290,11 +3335,11 @@ end
 function cepheus.sched.signal_event(event)
 	expect(1, event, "string")
 
-	if cepheus.sched._events[event] then
-		for _, pid in ipairs(cepheus.sched._events[event]) do
+	if _events[event] then
+		for _, pid in ipairs(_events[event]) do
 			cepheus.sched.wake(pid)
 		end
-		cepheus.sched._events[event] = nil
+		_events[event] = nil
 	end
 end
 
@@ -3304,7 +3349,7 @@ end
 function cepheus.sched.send(pid, message)
 	expect(1, pid, "number")
 
-	local task = cepheus.sched._tasks[pid]
+	local task = _tasks[pid]
 	if not task then
 		error("No such task: " .. pid)
 		return
@@ -3332,7 +3377,7 @@ function cepheus.sched.recv(timeout)
 	expect(1, timeout, "number", "nil")
 
 	local pid = cepheus.sched.current_pid()
-	local task = cepheus.sched._tasks[pid]
+	local task = _tasks[pid]
 
 	if not task then
 		error("No such task")
@@ -3360,7 +3405,7 @@ end
 -- @return number, any Sender PID and message, or nil
 function cepheus.sched.poll()
 	local pid = cepheus.sched.current_pid()
-	local task = cepheus.sched._tasks[pid]
+	local task = _tasks[pid]
 
 	if not task or #task.mailbox == 0 then
 		return nil, nil
@@ -3381,7 +3426,7 @@ function cepheus.sched.broadcast(group, message)
 		return
 	end
 
-	for pid, task in pairs(cepheus.sched._tasks) do
+	for pid, task in pairs(_tasks) do
 		if task.groups and task.groups[group] then
 			pcall(cepheus.sched.send, pid, message)
 		end
@@ -3395,13 +3440,18 @@ function cepheus.sched.set_mailbox_limit(pid, n)
 	expect(1, pid, "number")
 	expect(2, n, "number")
 
-	local task = cepheus.sched._tasks[pid]
+	local task = _tasks[pid]
 	if not task then
 		error("No such task: " .. pid)
 		return
 	end
 
-	if not cepheus.users.isRoot() and task.owner ~= cepheus.users.getCurrentUser().uid then
+	local callerTask = _tasks[cepheus.sched.current_pid()]
+	if
+		not cepheus.users.isRoot()
+		and task.owner ~= (callerTask and callerTask.euid or 0)
+		and task.parent ~= cepheus.sched.current_pid()
+	then
 		error("Permission denied: not task owner")
 		return
 	end
@@ -3421,13 +3471,18 @@ function cepheus.sched.signal(pid, sig)
 		return
 	end
 
-	local task = cepheus.sched._tasks[pid]
+	local task = _tasks[pid]
 	if not task then
 		error("No such task: " .. pid)
 		return
 	end
 
-	if not cepheus.users.isRoot() and task.owner ~= cepheus.users.getCurrentUser().uid then
+	local callerTask = _tasks[cepheus.sched.current_pid()]
+	if
+		not cepheus.users.isRoot()
+		and task.owner ~= (callerTask and callerTask.euid or 0)
+		and task.parent ~= cepheus.sched.current_pid()
+	then
 		error("Permission denied: not task owner")
 		return
 	end
@@ -3445,7 +3500,7 @@ function cepheus.sched.on_signal(sig, handler)
 	expect(2, handler, "function", "nil")
 
 	local pid = cepheus.sched.current_pid()
-	local task = cepheus.sched._tasks[pid]
+	local task = _tasks[pid]
 
 	if task then
 		task.signalHandlers[sig] = handler
@@ -3458,7 +3513,7 @@ function cepheus.sched.mask_signal(sig)
 	expect(1, sig, "string")
 
 	local pid = cepheus.sched.current_pid()
-	local task = cepheus.sched._tasks[pid]
+	local task = _tasks[pid]
 
 	if task then
 		task.signalMask[sig] = true
@@ -3471,7 +3526,7 @@ function cepheus.sched.unmask_signal(sig)
 	expect(1, sig, "string")
 
 	local pid = cepheus.sched.current_pid()
-	local task = cepheus.sched._tasks[pid]
+	local task = _tasks[pid]
 
 	if task then
 		task.signalMask[sig] = nil
@@ -3481,10 +3536,10 @@ end
 --- Create a mutex
 -- @return number Mutex ID
 function cepheus.sched.mutex_create()
-	local id = cepheus.sched._nextResourceId
-	cepheus.sched._nextResourceId = cepheus.sched._nextResourceId + 1
+	local id = _nextResourceId
+	_nextResourceId = _nextResourceId + 1
 
-	cepheus.sched._mutexes[id] = {
+	_mutexes[id] = {
 		locked = false,
 		owner = nil,
 		queue = {},
@@ -3498,7 +3553,7 @@ end
 function cepheus.sched.mutex_lock(m)
 	expect(1, m, "number")
 
-	local mutex = cepheus.sched._mutexes[m]
+	local mutex = _mutexes[m]
 	if not mutex then
 		error("Invalid mutex: " .. m)
 		return
@@ -3520,7 +3575,7 @@ end
 function cepheus.sched.mutex_unlock(m)
 	expect(1, m, "number")
 
-	local mutex = cepheus.sched._mutexes[m]
+	local mutex = _mutexes[m]
 	if not mutex then
 		error("Invalid mutex: " .. m)
 		return
@@ -3548,10 +3603,10 @@ end
 function cepheus.sched.sem_create(count)
 	expect(1, count, "number")
 
-	local id = cepheus.sched._nextResourceId
-	cepheus.sched._nextResourceId = cepheus.sched._nextResourceId + 1
+	local id = _nextResourceId
+	_nextResourceId = _nextResourceId + 1
 
-	cepheus.sched._semaphores[id] = {
+	_semaphores[id] = {
 		count = count,
 		queue = {},
 	}
@@ -3564,7 +3619,7 @@ end
 function cepheus.sched.sem_wait(s)
 	expect(1, s, "number")
 
-	local sem = cepheus.sched._semaphores[s]
+	local sem = _semaphores[s]
 	if not sem then
 		error("Invalid semaphore: " .. s)
 		return
@@ -3585,7 +3640,7 @@ end
 function cepheus.sched.sem_post(s)
 	expect(1, s, "number")
 
-	local sem = cepheus.sched._semaphores[s]
+	local sem = _semaphores[s]
 	if not sem then
 		error("Invalid semaphore: " .. s)
 		return
@@ -3602,10 +3657,10 @@ end
 --- Create a condition variable
 -- @return number Condition ID
 function cepheus.sched.cond_create()
-	local id = cepheus.sched._nextResourceId
-	cepheus.sched._nextResourceId = cepheus.sched._nextResourceId + 1
+	local id = _nextResourceId
+	_nextResourceId = _nextResourceId + 1
 
-	cepheus.sched._conditions[id] = {
+	_conditions[id] = {
 		queue = {},
 	}
 
@@ -3619,7 +3674,7 @@ function cepheus.sched.cond_wait(cond, mutex)
 	expect(1, cond, "number")
 	expect(2, mutex, "number")
 
-	local cv = cepheus.sched._conditions[cond]
+	local cv = _conditions[cond]
 	if not cv then
 		error("Invalid condition variable: " .. cond)
 		return
@@ -3638,7 +3693,7 @@ end
 function cepheus.sched.cond_signal(cond)
 	expect(1, cond, "number")
 
-	local cv = cepheus.sched._conditions[cond]
+	local cv = _conditions[cond]
 	if not cv then
 		error("Invalid condition variable: " .. cond)
 		return
@@ -3655,7 +3710,7 @@ end
 function cepheus.sched.cond_broadcast(cond)
 	expect(1, cond, "number")
 
-	local cv = cepheus.sched._conditions[cond]
+	local cv = _conditions[cond]
 	if not cv then
 		error("Invalid condition variable: " .. cond)
 		return
@@ -3674,16 +3729,16 @@ end
 function cepheus.sched.register_resource(obj, cleanup_fn)
 	expect(2, cleanup_fn, "function", "nil")
 
-	local id = cepheus.sched._nextResourceId
-	cepheus.sched._nextResourceId = cepheus.sched._nextResourceId + 1
+	local id = _nextResourceId
+	_nextResourceId = _nextResourceId + 1
 
-	cepheus.sched._resources[id] = {
+	_resources[id] = {
 		object = obj,
 		cleanup = cleanup_fn,
 	}
 
 	local pid = cepheus.sched.current_pid()
-	local task = cepheus.sched._tasks[pid]
+	local task = _tasks[pid]
 
 	if task then
 		table.insert(task.resources, id)
@@ -3695,12 +3750,12 @@ end
 --- Release a resource
 -- @param obj Resource object
 function cepheus.sched.release_resource(obj)
-	for id, resource in pairs(cepheus.sched._resources) do
+	for id, resource in pairs(_resources) do
 		if resource.object == obj then
 			if resource.cleanup then
 				pcall(resource.cleanup, obj)
 			end
-			cepheus.sched._resources[id] = nil
+			_resources[id] = nil
 			break
 		end
 	end
@@ -3711,7 +3766,7 @@ end
 function cepheus.sched.list_tasks()
 	local tasks = {}
 
-	for pid, task in pairs(cepheus.sched._tasks) do
+	for pid, task in pairs(_tasks) do
 		table.insert(tasks, {
 			pid = pid,
 			state = task.state,
@@ -3732,7 +3787,7 @@ end
 function cepheus.sched.task_info(pid)
 	expect(1, pid, "number")
 
-	local task = cepheus.sched._tasks[pid]
+	local task = _tasks[pid]
 	if not task then
 		return nil
 	end
@@ -3763,7 +3818,7 @@ function cepheus.sched.trace(pid, enable)
 		return
 	end
 
-	local task = cepheus.sched._tasks[pid]
+	local task = _tasks[pid]
 	if not task then
 		error("No such task: " .. pid)
 		return
@@ -3782,7 +3837,7 @@ function cepheus.sched.dump_state(pid)
 		return
 	end
 
-	local task = cepheus.sched._tasks[pid]
+	local task = _tasks[pid]
 	if not task then
 		error("No such task: " .. pid)
 		return
@@ -3816,7 +3871,7 @@ function cepheus.sched.set_scheduler(mode)
 		return
 	end
 
-	cepheus.sched._schedulerMode = mode
+	_schedulerMode = mode
 end
 
 --- Freeze the world (stop all tasks)
@@ -3826,7 +3881,7 @@ function cepheus.sched.freeze_world()
 		return
 	end
 
-	cepheus.sched._worldFrozen = true
+	_worldFrozen = true
 end
 
 --- Thaw the world (resume all tasks)
@@ -3836,7 +3891,7 @@ function cepheus.sched.thaw_world()
 		return
 	end
 
-	cepheus.sched._worldFrozen = false
+	_worldFrozen = false
 end
 
 --- Enter critical section
@@ -3846,7 +3901,7 @@ function cepheus.sched.enter_critical()
 		return
 	end
 
-	cepheus.sched._criticalSection = cepheus.sched._criticalSection + 1
+	_criticalSection = _criticalSection + 1
 end
 
 --- Leave critical section
@@ -3856,8 +3911,8 @@ function cepheus.sched.leave_critical()
 		return
 	end
 
-	if cepheus.sched._criticalSection > 0 then
-		cepheus.sched._criticalSection = cepheus.sched._criticalSection - 1
+	if _criticalSection > 0 then
+		_criticalSection = _criticalSection - 1
 	end
 end
 
@@ -3866,25 +3921,25 @@ end
 function cepheus.sched.defer(func)
 	expect(1, func, "function")
 
-	table.insert(cepheus.sched._deferredQueue, func)
+	table.insert(_deferredQueue, func)
 end
 
 local function sched_run()
 	while true do
 		::continue::
 
-		while #cepheus.sched._deferredQueue > 0 do
-			local func = table.remove(cepheus.sched._deferredQueue, 1)
+		while #_deferredQueue > 0 do
+			local func = table.remove(_deferredQueue, 1)
 			pcall(func)
 		end
 
-		if cepheus.sched._worldFrozen then
+		if _worldFrozen then
 			coroutine.yield()
 			goto continue
 		end
 
 		local now = os.epoch("utc")
-		for pid, task in pairs(cepheus.sched._tasks) do
+		for pid, task in pairs(_tasks) do
 			if task.state == cepheus.sched.STATE.BLOCKED and task.wakeTime and now >= task.wakeTime then
 				task.state = cepheus.sched.STATE.READY
 				task.wakeTime = nil
@@ -3894,9 +3949,9 @@ local function sched_run()
 
 		local nextTask = nil
 
-		if cepheus.sched._schedulerMode == cepheus.sched.MODE.ROUND_ROBIN then
+		if _schedulerMode == cepheus.sched.MODE.ROUND_ROBIN then
 			local pids = {}
-			for pid, task in pairs(cepheus.sched._tasks) do
+			for pid, task in pairs(_tasks) do
 				if task.state == cepheus.sched.STATE.READY then
 					table.insert(pids, pid)
 				end
@@ -3904,26 +3959,26 @@ local function sched_run()
 			table.sort(pids)
 
 			for _, pid in ipairs(pids) do
-				if pid > cepheus.sched._currentPid then
-					nextTask = cepheus.sched._tasks[pid]
+				if pid > _currentPid then
+					nextTask = _tasks[pid]
 					break
 				end
 			end
 
 			if not nextTask and #pids > 0 then
-				nextTask = cepheus.sched._tasks[pids[1]]
+				nextTask = _tasks[pids[1]]
 			end
-		elseif cepheus.sched._schedulerMode == cepheus.sched.MODE.PRIORITY then
+		elseif _schedulerMode == cepheus.sched.MODE.PRIORITY then
 			local highestPrio = -math.huge
-			for pid, task in pairs(cepheus.sched._tasks) do
+			for pid, task in pairs(_tasks) do
 				if task.state == cepheus.sched.STATE.READY and task.priority > highestPrio then
 					highestPrio = task.priority
 					nextTask = task
 				end
 			end
-		elseif cepheus.sched._schedulerMode == cepheus.sched.MODE.FAIR then
+		elseif _schedulerMode == cepheus.sched.MODE.FAIR then
 			local leastCpu = math.huge
-			for pid, task in pairs(cepheus.sched._tasks) do
+			for pid, task in pairs(_tasks) do
 				if task.state == cepheus.sched.STATE.READY and task.cpuTime < leastCpu then
 					leastCpu = task.cpuTime
 					nextTask = task
@@ -3932,7 +3987,7 @@ local function sched_run()
 		end
 
 		if nextTask then
-			cepheus.sched._currentPid = nextTask.pid
+			_currentPid = nextTask.pid
 			nextTask.state = cepheus.sched.STATE.RUNNING
 
 			local startTime = os.epoch("utc")
@@ -3968,8 +4023,8 @@ local function sched_run()
 				nextTask.state = cepheus.sched.STATE.DEAD
 				nextTask.exitCode = -1
 
-				if nextTask.parent and cepheus.sched._tasks[nextTask.parent] then
-					local parent = cepheus.sched._tasks[nextTask.parent]
+				if nextTask.parent and _tasks[nextTask.parent] then
+					local parent = _tasks[nextTask.parent]
 					if
 						parent.state == cepheus.sched.STATE.BLOCKED
 						and parent.blockReason == "wait:" .. nextTask.pid
@@ -3983,8 +4038,8 @@ local function sched_run()
 				nextTask.state = cepheus.sched.STATE.DEAD
 				nextTask.exitCode = nextTask.exitCode or 0
 
-				if nextTask.parent and cepheus.sched._tasks[nextTask.parent] then
-					local parent = cepheus.sched._tasks[nextTask.parent]
+				if nextTask.parent and _tasks[nextTask.parent] then
+					local parent = _tasks[nextTask.parent]
 					if
 						parent.state == cepheus.sched.STATE.BLOCKED
 						and parent.blockReason == "wait:" .. nextTask.pid
@@ -4002,7 +4057,7 @@ local function sched_run()
 		end
 
 		local anyJustWoken = false
-		for pid, task in pairs(cepheus.sched._tasks) do
+		for pid, task in pairs(_tasks) do
 			if task.justWoken then
 				anyJustWoken = true
 				task.justWoken = false
@@ -4016,7 +4071,7 @@ local function sched_run()
 		local event = { coroutine.yield() }
 		local eventType = event[1]
 
-		for pid, task in pairs(cepheus.sched._tasks) do
+		for pid, task in pairs(_tasks) do
 			if task.state == cepheus.sched.STATE.READY and task.hasStarted then
 				if task.eventFilter == nil or task.eventFilter == eventType then
 					task.args = event
