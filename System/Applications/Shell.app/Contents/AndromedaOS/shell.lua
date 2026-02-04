@@ -25,6 +25,7 @@ Shell.variables.HOSTNAME = "localhost"
 Shell.variables.EDITOR = "edit"
 Shell.variables.PAGER = "less"
 
+local executeCommand
 local PipeBuffer = {}
 PipeBuffer.__index = PipeBuffer
 
@@ -107,11 +108,10 @@ function FileStream:close()
 end
 
 local function getHostname()
-	if _G.Config and type(_G.Config.FetchValueFromKey) == "function" then
-		return _G.Config:FetchValueFromKey("Hostname") or "localhost"
-	end
-	return Shell.variables.HOSTNAME or "localhost"
+	return _G.Config:FetchValueFromKey("Hostname") or "localhost"
 end
+
+Shell.variables.HOSTNAME = getHostname()
 
 local function getUsername()
 	local user = cepheus.users.getCurrentUser()
@@ -629,6 +629,9 @@ end
 function builtins.unalias(args)
 	if #args == 0 then
 		cepheus.term.printError("unalias: missing argument")
+		cepheus.term.printError("Usage: unalias [-a] name [name ...]")
+		cepheus.term.printError("Options:")
+		cepheus.term.printError("  -a  remove all alias definitions")
 		Shell.exitStatus = 1
 		return
 	end
@@ -725,6 +728,31 @@ end
 
 function builtins.test(args)
 	if #args == 0 then
+		cepheus.term.pager({
+			"test: missing operand",
+			"Usage: test EXPRESSION",
+			"",
+			"File tests:",
+			"  -e FILE       True if file exists",
+			"  -f FILE       True if file exists and is a regular file",
+			"  -d FILE       True if file exists and is a directory",
+			"  -r FILE       True if file exists and is readable",
+			"  -w FILE       True if file exists and is writable",
+			"",
+			"String tests:",
+			"  -z STRING     True if string is empty",
+			"  -n STRING     True if string is not empty",
+			"  STR1 = STR2   True if strings are equal",
+			"  STR1 != STR2  True if strings are not equal",
+			"",
+			"Numeric tests:",
+			"  N1 -eq N2     True if N1 equals N2",
+			"  N1 -ne N2     True if N1 not equal to N2",
+			"  N1 -lt N2     True if N1 less than N2",
+			"  N1 -le N2     True if N1 less than or equal to N2",
+			"  N1 -gt N2     True if N1 greater than N2",
+			"  N1 -ge N2     True if N1 greater than or equal to N2",
+		}, "test help")
 		Shell.exitStatus = 1
 		return
 	end
@@ -834,6 +862,8 @@ end
 function builtins.source(args)
 	if #args == 0 then
 		cepheus.term.printError("source: missing file argument")
+		cepheus.term.printError("Usage: source FILE [args...]")
+		cepheus.term.printError("Execute commands from FILE in the current shell")
 		Shell.exitStatus = 1
 		return
 	end
@@ -971,6 +1001,12 @@ function builtins.help(args)
 			"  rmdir [dirs]     - Remove empty directories",
 			"  touch [files]    - Create empty files",
 			"",
+			"File Permissions:",
+			"  chmod mode file  - Change file mode (e.g., chmod 755 file)",
+			"  chown user file  - Change file owner",
+			"  stat file        - Display file status",
+			"  setflag file f   - Set special flag (setuid/setgid/sticky)",
+			"",
 			"Text Processing:",
 			"  grep pattern     - Search for pattern in input",
 			"  head [-n N]      - Output first N lines (default 10)",
@@ -980,6 +1016,28 @@ function builtins.help(args)
 			"Output:",
 			"  echo [-n] [text] - Print text (use -n to omit newline)",
 			"  printf fmt [args]- Format and print",
+			"",
+			"User Management:",
+			"  whoami           - Print current username",
+			"  id [user]        - Print user ID and capabilities",
+			"  su [user]        - Switch user (prompts for password)",
+			"  useradd [-p pwd] user - Create new user",
+			"  userdel user     - Delete user",
+			"  passwd [user]    - Change password",
+			"  users [-l]       - List all users (use -l for details)",
+			"  groups [user]    - Show user's groups",
+			"  grant user cap   - Grant capability to user (root only)",
+			"  revoke user cap  - Revoke capability from user (root only)",
+			"  caps [user]      - Show user's capabilities",
+			"",
+			"Process Management:",
+			"  ps [-a]          - List processes",
+			"  kill [-s sig] pid- Kill process by PID",
+			"",
+			"System Information:",
+			"  uptime           - Show system uptime",
+			"  uname [-a]       - Show system information",
+			"  free             - Display memory information",
 			"",
 			"Variables:",
 			"  export VAR=val   - Set and export environment variable",
@@ -1013,6 +1071,10 @@ function builtins.help(args)
 			"  . file           - Same as source",
 			"  exec cmd         - Replace shell with command",
 			"  eval args        - Evaluate arguments as command",
+			"",
+			"Power Management:",
+			"  shutdown         - Shutdown the system",
+			"  reboot           - Reboot the system",
 			"",
 			"Utilities:",
 			"  history [-c]     - Show/clear command history",
@@ -1253,6 +1315,8 @@ end
 function builtins.cp(args)
 	if #args < 2 then
 		cepheus.term.printError("cp: missing file operand")
+		cepheus.term.printError("Usage: cp SOURCE DEST")
+		cepheus.term.printError("  or:  cp SOURCE... DIRECTORY")
 		Shell.exitStatus = 1
 		return
 	end
@@ -1283,6 +1347,8 @@ end
 function builtins.mv(args)
 	if #args < 2 then
 		cepheus.term.printError("mv: missing file operand")
+		cepheus.term.printError("Usage: mv SOURCE DEST")
+		cepheus.term.printError("  or:  mv SOURCE... DIRECTORY")
 		Shell.exitStatus = 1
 		return
 	end
@@ -1307,6 +1373,10 @@ end
 function builtins.rm(args)
 	if #args == 0 then
 		cepheus.term.printError("rm: missing operand")
+		cepheus.term.printError("Usage: rm [OPTION]... FILE...")
+		cepheus.term.printError("Options:")
+		cepheus.term.printError("  -r, -R  remove directories and their contents recursively")
+		cepheus.term.printError("  -f      ignore nonexistent files, never prompt")
 		Shell.exitStatus = 1
 		return
 	end
@@ -1344,6 +1414,9 @@ end
 function builtins.mkdir(args)
 	if #args == 0 then
 		cepheus.term.printError("mkdir: missing operand")
+		cepheus.term.printError("Usage: mkdir [OPTION]... DIRECTORY...")
+		cepheus.term.printError("Options:")
+		cepheus.term.printError("  -p  make parent directories as needed")
 		Shell.exitStatus = 1
 		return
 	end
@@ -1387,6 +1460,8 @@ end
 function builtins.rmdir(args)
 	if #args == 0 then
 		cepheus.term.printError("rmdir: missing operand")
+		cepheus.term.printError("Usage: rmdir DIRECTORY...")
+		cepheus.term.printError("Remove empty directories")
 		Shell.exitStatus = 1
 		return
 	end
@@ -1424,6 +1499,8 @@ end
 function builtins.touch(args)
 	if #args == 0 then
 		cepheus.term.printError("touch: missing file operand")
+		cepheus.term.printError("Usage: touch FILE...")
+		cepheus.term.printError("Create empty files or update timestamps")
 		Shell.exitStatus = 1
 		return
 	end
@@ -1448,6 +1525,8 @@ end
 function builtins.grep(args)
 	if #args == 0 then
 		cepheus.term.printError("grep: missing pattern")
+		cepheus.term.printError("Usage: grep PATTERN [FILE...]")
+		cepheus.term.printError("Search for PATTERN in each FILE or standard input")
 		Shell.exitStatus = 1
 		return
 	end
@@ -1695,6 +1774,725 @@ function builtins.clear(args)
 	term.clear()
 	term.setCursorPos(1, 1)
 	Shell.exitStatus = 0
+end
+
+function builtins.whoami(args)
+	local user = cepheus.users.getCurrentUser()
+	if user then
+		cepheus.term.print(user.username)
+		Shell.exitStatus = 0
+	else
+		cepheus.term.printError("whoami: cannot determine current user")
+		Shell.exitStatus = 1
+	end
+end
+
+function builtins.id(args)
+	local parsed = cepheus.parsing.parseArgs(args)
+	local positional = cepheus.parsing.getPositionalArgs(parsed)
+
+	local username = positional[1]
+	local user
+
+	if username then
+		user = cepheus.users.getUserInfo(username)
+		if not user then
+			cepheus.term.printError("id: '" .. username .. "': no such user")
+			Shell.exitStatus = 1
+			return
+		end
+	else
+		user = cepheus.users.getCurrentUser()
+		if not user then
+			cepheus.term.printError("id: cannot determine current user")
+			Shell.exitStatus = 1
+			return
+		end
+	end
+
+	local caps = cepheus.users.getUserCapabilities(user.username)
+	local capStr = table.concat(caps, ",")
+
+	cepheus.term.print(
+		string.format(
+			"uid=%d(%s) gid=%d(%s) capabilities=%s",
+			user.uid,
+			user.username,
+			user.gid,
+			user.username,
+			#caps > 0 and capStr or "none"
+		)
+	)
+	Shell.exitStatus = 0
+end
+
+function builtins.su(args)
+	local parsed = cepheus.parsing.parseArgs(args)
+	local positional = cepheus.parsing.getPositionalArgs(parsed)
+	local targetUser = positional[1] or "root"
+
+	local userInfo = cepheus.users.getUserInfo(targetUser)
+	if not userInfo then
+		cepheus.term.printError("su: user '" .. targetUser .. "' does not exist")
+		Shell.exitStatus = 1
+		return
+	end
+
+	cepheus.term.write("Password: ")
+	local password = cepheus.term.read("*")
+
+	if cepheus.users.authenticate(targetUser, password) then
+		cepheus.term.print("Switched to user: " .. targetUser)
+		Shell.currentDir = userInfo.home or "/"
+		Shell.variables.HOME = userInfo.home or "/"
+		Shell.variables.USER = targetUser
+		Shell.variables.PWD = Shell.currentDir
+		Shell.exitStatus = 0
+	else
+		cepheus.term.printError("su: Authentication failed")
+		Shell.exitStatus = 1
+	end
+end
+
+function builtins.useradd(args)
+	local parsed = cepheus.parsing.parseArgs(args, { valueArgs = { p = true, password = true, h = true, home = true } })
+	local positional = cepheus.parsing.getPositionalArgs(parsed)
+
+	if #positional == 0 then
+		cepheus.term.printError("useradd: missing username")
+		Shell.exitStatus = 1
+		return
+	end
+
+	local username = positional[1]
+	local password = cepheus.parsing.getArg(parsed, "p", nil, { "password" })
+	local home = cepheus.parsing.getArg(parsed, "h", nil, { "home" })
+
+	if not password then
+		cepheus.term.write("New password: ")
+		password = cepheus.term.read("*")
+		cepheus.term.write("Retype new password: ")
+		local password2 = cepheus.term.read("*")
+
+		if password ~= password2 then
+			cepheus.term.printError("useradd: passwords do not match")
+			Shell.exitStatus = 1
+			return
+		end
+	end
+
+	local success, err = pcall(function()
+		return cepheus.users.createUser(username, password, home)
+	end)
+
+	if success then
+		cepheus.term.print("User '" .. username .. "' created successfully")
+		Shell.exitStatus = 0
+	else
+		cepheus.term.printError("useradd: " .. tostring(err))
+		Shell.exitStatus = 1
+	end
+end
+
+function builtins.userdel(args)
+	local parsed = cepheus.parsing.parseArgs(args)
+	local positional = cepheus.parsing.getPositionalArgs(parsed)
+
+	if #positional == 0 then
+		cepheus.term.printError("userdel: missing username")
+		Shell.exitStatus = 1
+		return
+	end
+
+	local username = positional[1]
+
+	local success, err = pcall(function()
+		return cepheus.users.deleteUser(username)
+	end)
+
+	if success then
+		cepheus.term.print("User '" .. username .. "' deleted successfully")
+		Shell.exitStatus = 0
+	else
+		cepheus.term.printError("userdel: " .. tostring(err))
+		Shell.exitStatus = 1
+	end
+end
+
+function builtins.passwd(args)
+	local parsed = cepheus.parsing.parseArgs(args)
+	local positional = cepheus.parsing.getPositionalArgs(parsed)
+
+	local targetUser
+	if #positional > 0 then
+		targetUser = positional[1]
+	else
+		local currentUser = cepheus.users.getCurrentUser()
+		if currentUser then
+			targetUser = currentUser.username
+		else
+			cepheus.term.printError("passwd: cannot determine current user")
+			Shell.exitStatus = 1
+			return
+		end
+	end
+
+	local userInfo = cepheus.users.getUserInfo(targetUser)
+	if not userInfo then
+		cepheus.term.printError("passwd: user '" .. targetUser .. "' does not exist")
+		Shell.exitStatus = 1
+		return
+	end
+
+	local currentUser = cepheus.users.getCurrentUser()
+	local isRoot = currentUser and currentUser.uid == 0
+	local isSelf = currentUser and currentUser.username == targetUser
+
+	local oldPassword = ""
+	if not isRoot and isSelf then
+		cepheus.term.write("Current password: ")
+		oldPassword = cepheus.term.read("*")
+	end
+
+	cepheus.term.write("New password: ")
+	local newPassword = cepheus.term.read("*")
+	cepheus.term.write("Retype new password: ")
+	local newPassword2 = cepheus.term.read("*")
+
+	if newPassword ~= newPassword2 then
+		cepheus.term.printError("passwd: passwords do not match")
+		Shell.exitStatus = 1
+		return
+	end
+
+	local success = cepheus.users.changePassword(targetUser, oldPassword, newPassword)
+	if success then
+		cepheus.term.print("Password changed successfully")
+		Shell.exitStatus = 0
+	else
+		cepheus.term.printError("passwd: authentication failed or permission denied")
+		Shell.exitStatus = 1
+	end
+end
+
+function builtins.users(args)
+	local userList = cepheus.users.listUsers()
+	table.sort(userList)
+
+	local parsed = cepheus.parsing.parseArgs(args)
+	local longFormat = cepheus.parsing.hasFlag(parsed, "l", { "long" })
+
+	if longFormat then
+		cepheus.term.print(string.format("%-12s %6s %6s %-20s %s", "USERNAME", "UID", "GID", "HOME", "SHELL"))
+		for _, username in ipairs(userList) do
+			local info = cepheus.users.getUserInfo(username)
+			if info then
+				cepheus.term.print(
+					string.format(
+						"%-12s %6d %6d %-20s %s",
+						info.username,
+						info.uid,
+						info.gid,
+						info.home or "/",
+						info.shell or "none"
+					)
+				)
+			end
+		end
+	else
+		cepheus.term.print(table.concat(userList, " "))
+	end
+
+	Shell.exitStatus = 0
+end
+
+function builtins.groups(args)
+	local parsed = cepheus.parsing.parseArgs(args)
+	local positional = cepheus.parsing.getPositionalArgs(parsed)
+
+	local username
+	if #positional > 0 then
+		username = positional[1]
+	else
+		local currentUser = cepheus.users.getCurrentUser()
+		if currentUser then
+			username = currentUser.username
+		else
+			cepheus.term.printError("groups: cannot determine current user")
+			Shell.exitStatus = 1
+			return
+		end
+	end
+
+	local userInfo = cepheus.users.getUserInfo(username)
+	if not userInfo then
+		cepheus.term.printError("groups: user '" .. username .. "' does not exist")
+		Shell.exitStatus = 1
+		return
+	end
+
+	cepheus.term.print(username .. " : " .. userInfo.gid .. "(" .. username .. ")")
+	Shell.exitStatus = 0
+end
+
+function builtins.grant(args)
+	local parsed = cepheus.parsing.parseArgs(args)
+	local positional = cepheus.parsing.getPositionalArgs(parsed)
+
+	if #positional < 2 then
+		cepheus.term.printError("grant: usage: grant <username> <capability>")
+		cepheus.term.printError("Available capabilities:")
+		for name, cap in pairs(cepheus.users.CAPS) do
+			cepheus.term.printError("  " .. cap)
+		end
+		Shell.exitStatus = 1
+		return
+	end
+
+	local username = positional[1]
+	local capability = positional[2]
+
+	local validCap = false
+	for _, cap in pairs(cepheus.users.CAPS) do
+		if cap == capability then
+			validCap = true
+			break
+		end
+	end
+
+	if not validCap then
+		cepheus.term.printError("grant: invalid capability '" .. capability .. "'")
+		Shell.exitStatus = 1
+		return
+	end
+
+	local success, err = pcall(function()
+		return cepheus.users.grantCap(username, capability)
+	end)
+
+	if success then
+		cepheus.term.print("Granted capability '" .. capability .. "' to user '" .. username .. "'")
+		Shell.exitStatus = 0
+	else
+		cepheus.term.printError("grant: " .. tostring(err))
+		Shell.exitStatus = 1
+	end
+end
+
+function builtins.revoke(args)
+	local parsed = cepheus.parsing.parseArgs(args)
+	local positional = cepheus.parsing.getPositionalArgs(parsed)
+
+	if #positional < 2 then
+		cepheus.term.printError("revoke: usage: revoke <username> <capability>")
+		Shell.exitStatus = 1
+		return
+	end
+
+	local username = positional[1]
+	local capability = positional[2]
+
+	local success, err = pcall(function()
+		return cepheus.users.revokeCap(username, capability)
+	end)
+
+	if success then
+		cepheus.term.print("Revoked capability '" .. capability .. "' from user '" .. username .. "'")
+		Shell.exitStatus = 0
+	else
+		cepheus.term.printError("revoke: " .. tostring(err))
+		Shell.exitStatus = 1
+	end
+end
+
+function builtins.caps(args)
+	local parsed = cepheus.parsing.parseArgs(args)
+	local positional = cepheus.parsing.getPositionalArgs(parsed)
+
+	local username
+	if #positional > 0 then
+		username = positional[1]
+	else
+		local currentUser = cepheus.users.getCurrentUser()
+		if currentUser then
+			username = currentUser.username
+		else
+			cepheus.term.printError("caps: cannot determine current user")
+			Shell.exitStatus = 1
+			return
+		end
+	end
+
+	local userInfo = cepheus.users.getUserInfo(username)
+	if not userInfo then
+		cepheus.term.printError("caps: user '" .. username .. "' does not exist")
+		Shell.exitStatus = 1
+		return
+	end
+
+	local caps = cepheus.users.getUserCapabilities(username)
+
+	if #caps == 0 then
+		cepheus.term.print(username .. ": no capabilities")
+	else
+		cepheus.term.print(username .. " capabilities:")
+		table.sort(caps)
+		for _, cap in ipairs(caps) do
+			cepheus.term.print("  " .. cap)
+		end
+	end
+
+	Shell.exitStatus = 0
+end
+
+function builtins.usermod(args)
+	local parsed = cepheus.parsing.parseArgs(args, {
+		valueArgs = {
+			d = true,
+			home = true,
+			s = true,
+			shell = true,
+			u = true,
+			uid = true,
+			g = true,
+			gid = true,
+		},
+	})
+	local positional = cepheus.parsing.getPositionalArgs(parsed)
+
+	if #positional == 0 then
+		cepheus.term.printError("usermod: missing username")
+		cepheus.term.printError("Usage: usermod [-d home] [-s shell] [-u uid] [-g gid] username")
+		Shell.exitStatus = 1
+		return
+	end
+
+	local username = positional[1]
+
+	if not cepheus.users.hasCap(cepheus.users.CAPS.USER_ADMIN) then
+		cepheus.term.printError("usermod: permission denied (requires USER_ADMIN capability)")
+		Shell.exitStatus = 1
+		return
+	end
+
+	local userInfo = cepheus.users.getUserInfo(username)
+	if not userInfo then
+		cepheus.term.printError("usermod: user '" .. username .. "' does not exist")
+		Shell.exitStatus = 1
+		return
+	end
+
+	cepheus.term.printError("usermod: not yet fully implemented")
+	cepheus.term.printError("Use passwd to change password, grant/revoke for capabilities")
+	Shell.exitStatus = 1
+end
+
+function builtins.chmod(args)
+	local parsed = cepheus.parsing.parseArgs(args)
+	local positional = cepheus.parsing.getPositionalArgs(parsed)
+
+	if #positional < 2 then
+		cepheus.term.printError("chmod: missing operand")
+		cepheus.term.printError("Usage: chmod MODE FILE...")
+		cepheus.term.printError("Example: chmod 755 file.txt")
+		cepheus.term.printError("")
+		cepheus.term.printError("MODE is an octal number (e.g., 755, 644)")
+		Shell.exitStatus = 1
+		return
+	end
+
+	local mode = tonumber(positional[1], 8)
+	if not mode then
+		cepheus.term.printError("chmod: invalid mode: " .. positional[1])
+		Shell.exitStatus = 1
+		return
+	end
+
+	for i = 2, #positional do
+		local path = resolvePath(positional[i])
+
+		if not fs.exists(path) then
+			cepheus.term.printError("chmod: cannot access '" .. positional[i] .. "': No such file or directory")
+			Shell.exitStatus = 1
+		else
+			local success, err = pcall(cepheus.perms.chmod, path, mode)
+			if not success then
+				cepheus.term.printError("chmod: " .. tostring(err))
+				Shell.exitStatus = 1
+			end
+		end
+	end
+
+	Shell.exitStatus = 0
+end
+
+function builtins.chown(args)
+	local parsed = cepheus.parsing.parseArgs(args)
+	local positional = cepheus.parsing.getPositionalArgs(parsed)
+
+	if #positional < 2 then
+		cepheus.term.printError("chown: missing operand")
+		cepheus.term.printError("Usage: chown USER[:GROUP] FILE...")
+		cepheus.term.printError("Example: chown alice file.txt")
+		cepheus.term.printError("         chown alice:1000 file.txt")
+		Shell.exitStatus = 1
+		return
+	end
+
+	local ownerStr = positional[1]
+	local username, groupStr = ownerStr:match("^([^:]+):?(.*)$")
+
+	if not username then
+		cepheus.term.printError("chown: invalid owner specification")
+		Shell.exitStatus = 1
+		return
+	end
+
+	local userInfo = cepheus.users.getUserInfo(username)
+	if not userInfo then
+		cepheus.term.printError("chown: invalid user '" .. username .. "'")
+		Shell.exitStatus = 1
+		return
+	end
+
+	local uid = userInfo.uid
+	local gid = groupStr ~= "" and tonumber(groupStr) or userInfo.gid
+
+	for i = 2, #positional do
+		local path = resolvePath(positional[i])
+
+		if not fs.exists(path) then
+			cepheus.term.printError("chown: cannot access '" .. positional[i] .. "': No such file or directory")
+			Shell.exitStatus = 1
+		else
+			local success, err = pcall(cepheus.perms.chown, path, uid, gid)
+			if not success then
+				cepheus.term.printError("chown: " .. tostring(err))
+				Shell.exitStatus = 1
+			end
+		end
+	end
+
+	Shell.exitStatus = 0
+end
+
+function builtins.stat(args)
+	local parsed = cepheus.parsing.parseArgs(args)
+	local positional = cepheus.parsing.getPositionalArgs(parsed)
+
+	if #positional == 0 then
+		cepheus.term.printError("stat: missing operand")
+		cepheus.term.printError("Usage: stat FILE...")
+		Shell.exitStatus = 1
+		return
+	end
+
+	for _, file in ipairs(positional) do
+		local path = resolvePath(file)
+
+		if not fs.exists(path) then
+			cepheus.term.printError("stat: cannot stat '" .. file .. "': No such file or directory")
+			Shell.exitStatus = 1
+			return
+		end
+
+		local stat = cepheus.perms.stat(path)
+		if not stat then
+			cepheus.term.printError("stat: could not retrieve file information")
+			Shell.exitStatus = 1
+			return
+		end
+
+		local ownerName = "unknown"
+		local userInfo = cepheus.users.getUserInfo(stat.uid)
+		if userInfo then
+			ownerName = userInfo.username or "unknown"
+		end
+
+		cepheus.term.print(string.format("  File: %s", file))
+		cepheus.term.print(string.format("  Size: %d bytes", stat.size))
+		cepheus.term.print(string.format("  Type: %s", stat.isDir and "directory" or "regular file"))
+		cepheus.term.print(string.format("Access: (%04o/%s)", stat.perms, cepheus.perms.formatPerms(stat.perms)))
+		cepheus.term.print(string.format("   Uid: (%5d/%8s)", stat.uid, ownerName))
+		cepheus.term.print(string.format("   Gid: (%5d)", stat.gid))
+
+		if stat.hasSetuid or stat.hasSetgid or stat.hasSticky then
+			local flags = {}
+			if stat.hasSetuid then
+				table.insert(flags, "setuid")
+			end
+			if stat.hasSetgid then
+				table.insert(flags, "setgid")
+			end
+			if stat.hasSticky then
+				table.insert(flags, "sticky")
+			end
+			cepheus.term.print(string.format("Special: %s", table.concat(flags, ", ")))
+		end
+
+		if #positional > 1 then
+			cepheus.term.print("")
+		end
+	end
+
+	Shell.exitStatus = 0
+end
+
+function builtins.setflag(args)
+	local parsed = cepheus.parsing.parseArgs(args)
+	local positional = cepheus.parsing.getPositionalArgs(parsed)
+
+	if #positional < 2 then
+		cepheus.term.printError("setflag: missing operand")
+		cepheus.term.printError("Usage: setflag FILE FLAG [on|off]")
+		cepheus.term.printError("Flags: setuid, setgid, sticky")
+		Shell.exitStatus = 1
+		return
+	end
+
+	local path = resolvePath(positional[1])
+	local flag = positional[2]
+	local value = positional[3] ~= "off"
+
+	if not fs.exists(path) then
+		cepheus.term.printError("setflag: cannot access '" .. positional[1] .. "': No such file or directory")
+		Shell.exitStatus = 1
+		return
+	end
+
+	if flag ~= "setuid" and flag ~= "setgid" and flag ~= "sticky" then
+		cepheus.term.printError("setflag: invalid flag '" .. flag .. "'")
+		cepheus.term.printError("Valid flags: setuid, setgid, sticky")
+		Shell.exitStatus = 1
+		return
+	end
+
+	local flagValue
+	if flag == "setuid" then
+		flagValue = cepheus.perms.FLAGS.SETUID
+	elseif flag == "setgid" then
+		flagValue = cepheus.perms.FLAGS.SETGID
+	elseif flag == "sticky" then
+		flagValue = cepheus.perms.FLAGS.STICKY
+	end
+
+	local stat = cepheus.perms.stat(path)
+	if not stat then
+		cepheus.term.printError("setflag: could not get file status")
+		Shell.exitStatus = 1
+		return
+	end
+
+	local newFlags = stat.flags
+	if value then
+		newFlags = bit32.bor(newFlags, flagValue)
+	else
+		newFlags = bit32.band(newFlags, bit32.bnot(flagValue))
+	end
+
+	local success, err = pcall(cepheus.perms.setFlags, path, newFlags)
+	if not success then
+		cepheus.term.printError("setflag: " .. tostring(err))
+		Shell.exitStatus = 1
+	else
+		cepheus.term.print(string.format("Set %s %s on %s", flag, value and "on" or "off", positional[1]))
+		Shell.exitStatus = 0
+	end
+end
+
+function builtins.ps(args)
+	local parsed = cepheus.parsing.parseArgs(args)
+	local showAll = cepheus.parsing.hasFlag(parsed, "a", { "all" })
+
+	local tasks = cepheus.sched.list_tasks()
+
+	if #tasks == 0 then
+		cepheus.term.print("No processes running")
+		Shell.exitStatus = 0
+		return
+	end
+
+	cepheus.term.print(string.format("%-6s %-10s %-8s %-8s %10s", "PID", "STATE", "PRIORITY", "OWNER", "CPU(ms)"))
+
+	for _, task in ipairs(tasks) do
+		cepheus.term.print(
+			string.format("%-6d %-10s %-8d %-8d %10.2f", task.pid, task.state, task.priority, task.owner, task.cpu or 0)
+		)
+	end
+
+	Shell.exitStatus = 0
+end
+
+function builtins.kill(args)
+	local parsed = cepheus.parsing.parseArgs(args, { valueArgs = { s = true, signal = true } })
+	local positional = cepheus.parsing.getPositionalArgs(parsed)
+	local signal = tonumber(cepheus.parsing.getArg(parsed, "s", nil, { "signal" }))
+
+	if #positional == 0 then
+		cepheus.term.printError("kill: missing operand")
+		cepheus.term.printError("Usage: kill [-s SIGNAL] PID...")
+		Shell.exitStatus = 1
+		return
+	end
+
+	for _, pidStr in ipairs(positional) do
+		local pid = tonumber(pidStr)
+		if not pid then
+			cepheus.term.printError("kill: invalid PID '" .. pidStr .. "'")
+			Shell.exitStatus = 1
+		else
+			local success, err = pcall(cepheus.sched.kill, pid, signal)
+			if not success then
+				cepheus.term.printError("kill: " .. tostring(err))
+				Shell.exitStatus = 1
+			else
+				cepheus.term.print("Killed process " .. pid)
+			end
+		end
+	end
+
+	Shell.exitStatus = 0
+end
+
+function builtins.uptime(args)
+	local uptime = os.clock()
+	local hours = math.floor(uptime / 3600)
+	local minutes = math.floor((uptime % 3600) / 60)
+	local seconds = math.floor(uptime % 60)
+
+	cepheus.term.print(string.format("up %dh %dm %ds", hours, minutes, seconds))
+	Shell.exitStatus = 0
+end
+
+function builtins.uname(args)
+	local parsed = cepheus.parsing.parseArgs(args)
+	local showAll = cepheus.parsing.hasFlag(parsed, "a", { "all" })
+
+	if showAll then
+		local info = {}
+		table.insert(info, os.version and os.version() or "AndromedaOS")
+		table.insert(info, Shell.variables.HOSTNAME or "localhost")
+		table.insert(info, "ComputerCraft")
+		cepheus.term.print(table.concat(info, " "))
+	else
+		if os.version then
+			cepheus.term.print(os.version())
+		else
+			cepheus.term.print("AndromedaOS")
+		end
+	end
+
+	Shell.exitStatus = 0
+end
+
+function builtins.shutdown(args)
+	cepheus.term.print("System is going down for shutdown...")
+	os.shutdown()
+end
+
+function builtins.reboot(args)
+	cepheus.term.print("System is going down for reboot...")
+	os.reboot()
 end
 
 local function completeFunction(line)
@@ -1951,9 +2749,15 @@ local function executeCommandInPipeline(cmdSpec, stdinStream, stdoutStream, stde
 	local success, err = pcall(function()
 		local pid = cepheus.sched.spawnF(entryPoint, table.unpack(args))
 		if pid then
-			cepheus.sched.set_stdin(pid, stdinStream)
-			cepheus.sched.set_stdout(pid, stdoutStream)
-			cepheus.sched.set_stderr(pid, stderrStream)
+			if stdinStream then
+				cepheus.sched.set_stdin(pid, stdinStream)
+			end
+			if stdoutStream then
+				cepheus.sched.set_stdout(pid, stdoutStream)
+			end
+			if stderrStream then
+				cepheus.sched.set_stderr(pid, stderrStream)
+			end
 
 			local exitCode = cepheus.sched.wait(pid)
 			Shell.exitStatus = exitCode or 0
@@ -2019,7 +2823,7 @@ local function executePipeline(pipeline)
 	return Shell.exitStatus
 end
 
-local function executeCommand(commandLine)
+function executeCommand(commandLine)
 	commandLine = commandLine:match("^%s*(.-)%s*$")
 
 	if commandLine == "" then
@@ -2040,7 +2844,7 @@ local function executeCommand(commandLine)
 				commandLine = Shell.history[num]
 				cepheus.term.print(commandLine)
 			else
-				cepheus.term.printError("bash: !" .. num .. ": event not found")
+				cepheus.term.printError("ash: !" .. num .. ": event not found")
 				Shell.exitStatus = 1
 				return
 			end

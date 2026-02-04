@@ -62,6 +62,7 @@ while true do
 			cepheus.sched.wait(pid)
 
 			term.setBackgroundColor(cepheus.colors.black)
+			sleep(0.5)
 			term.clear()
 			term.setCursorPos(1, 1)
 			term.setTextColor(cepheus.colors.gray)
