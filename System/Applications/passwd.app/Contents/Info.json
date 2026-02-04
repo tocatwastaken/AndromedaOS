@@ -1,0 +1,12 @@
+{
+	"PList": {
+		"Entry": "AndromedaOS/main.lua",
+		"Name": "passwd",
+		"Version": "1.0.0",
+        "PackageName": "com.andromeda.passwd",
+		"Description": "Change user password utility",
+		"Author": "System",
+		"RequiresSetuid": true,
+		"SetuidUser": "root"
+	}
+}

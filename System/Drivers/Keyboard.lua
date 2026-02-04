@@ -1,13 +1,13 @@
-local Keyboard = peripheral.find("tm_keyboard")
+local Keyboard = cepheus.peripherals.find("tm_keyboard")
 
 
 local Driver = {}
 Driver.__index = Driver
 
 function Driver:Load()
-    _G.Darwin.Logger:Msg("Darwin::Keyboard: Initializing...")
+    _G.Persus.Logger:Msg("Persus::Keyboard: Initializing...")
     Keyboard.setFireNativeEvents(true)
-    _G.Darwin.Logger:Msg("Darwin::Keyboard: Ready!")
+    _G.Persus.Logger:Msg("Persus::Keyboard: Ready!")
 end
 
 function Driver:GetKeyboard()
@@ -15,9 +15,9 @@ function Driver:GetKeyboard()
 end
 
 function Driver:Unload()
-    _G.Darwin.Logger:Msg("Darwin::Keyboard: Say goodnight, Gracie.")
+    _G.Persus.Logger:Msg("Persus::Keyboard: Say goodnight, Gracie.")
     Keyboard.setFireNativeEvents(false)
-    _G.Darwin.Logger:Msg("Darwin::Keyboard: Shut down driver.")
+    _G.Persus.Logger:Msg("Persus::Keyboard: Shut down driver.")
 end
 
 return Driver

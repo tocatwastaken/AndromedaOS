@@ -1,0 +1,12 @@
+{
+  "BundleIdentifier": "com.andromeda.driver.ColorExtensions",
+  "BundleName": "ColorExtensions",
+  "BundleVersion": "1.0.0",
+  "BundlePackageType": "KEXT",
+  "BundleEntrypoint": "ColorExtensions.lua",
+  "OSBundleRequired": "Root",
+  "OSBundleDependencies": {},
+  "Capabilities": {
+    "LoadBeforeKernel": true,
+  }
+}
