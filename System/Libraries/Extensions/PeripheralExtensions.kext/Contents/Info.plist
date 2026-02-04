@@ -1,0 +1,12 @@
+{
+  "BundleIdentifier": "com.andromeda.driver.PeripheralExtensions",
+  "BundleName": "PeripheralExtensions",
+  "BundleVersion": "1.0.0",
+  "BundlePackageType": "KEXT",
+  "BundleEntrypoint": "PeripheralExtensions.lua",
+  "OSBundleRequired": "Root",
+  "OSBundleDependencies": {},
+  "Capabilities": {
+    "LoadBeforeKernel": false,
+  }
+}

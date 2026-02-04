@@ -1,0 +1,12 @@
+{
+	"PList": {
+		"Entry": "AndromedaOS/main.lua",
+		"Name": "su",
+        "PackageName": "com.andromeda.su",
+		"Version": "1.0.0",
+		"Description": "Switch user utility",
+		"Author": "System",
+		"RequiresSetuid": true,
+		"SetuidUser": "root"
+	}
+}
