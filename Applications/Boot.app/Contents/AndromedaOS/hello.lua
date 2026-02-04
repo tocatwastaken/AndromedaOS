@@ -9,8 +9,8 @@ if (type(gpu) == "boolean") then
     print("Couldn't find GPU, exiting...")
     return
 end
-local Info = require '/System/Libraries/Darwin/info'
-local display = _G.Darwin.DriverLoader:GetLoadedDriverByName("GPU"):GetDisplay()
+local Info = require '/System/Libraries/Persus/info'
+local display = _G.Persus.DriverLoader:GetLoadedDriverByName("GPU"):GetDisplay()
 
 -- Get display info
 local info = gpu.getDisplayInfo(display)
