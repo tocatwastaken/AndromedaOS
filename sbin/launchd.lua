@@ -2,7 +2,7 @@
 
 _G.Persus = {}
 local Info = require("/System/Libraries/Persus/info")
-local Config = require("/System/Libraries/Persus/config")
+_G.Config = require("/System/Libraries/Persus/config")
 _G.os.version = function()
 	return Info:FetchOSString()
 end
