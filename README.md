@@ -1,6 +1,8 @@
 # AndromedaOS
 Version 2026.2  
-This is the source code to my WIP ComputerCraft OS!
+This is a Work-In-Progress project to create a MacOS-like Operating System and Kernel in ComputerCraft.   
+We have a [Discord](https://discord.gg/j3MnzzFgKF), now!   
+
 # Getting Started
 Note: This requires [Tom's Peripherals](https://www.curseforge.com/minecraft/mc-mods/toms-peripherals)!  
 Simply clone the repo to your computer to get started.
